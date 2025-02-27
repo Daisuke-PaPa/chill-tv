@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0">
+  <title>Chill TV</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: black;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #landscape-warning {
+      position: fixed;
+      width: 100vw;
+      height: 100vh;
+      background: black;
+      color: white;
+      font-size: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+    #container {
+      position: relative;
+      height: 100vh;
+      aspect-ratio: 16 / 9;
+      transform: scale(1);
+    }
+    #background {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: url('tv.png') no-repeat center;
+      background-size: cover;
+      z-index: 1;
+    }
+    #video-container {
+      position: absolute;
+      width: 42.5%;
+      height: 42.5%;
+      top: 16.4%;
+      left: 28.75%;
+      z-index: 2;
+    }
+    #static-screen {
+      position: absolute;
+      width: 42.5%;
+      height: 42.5%;
+      top: 16.4%;
+      left: 28.75%;
+      background-size: cover;
+      display: none;
+      z-index: 3;
+    }
+    #light-effect {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: url('light_effect.png') no-repeat center;
+      background-size: cover;
+      z-index: 4;
+      pointer-events: none;
+    }
+    #click-area {
+      position: absolute;
+      width: 7.89%;
+      height: 28.2%;
+      top: 24.03%;
+      left: 73.05%;
+      z-index: 5;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0); /* Invisible */
+    }
+  </style>
+</head>
+<body>
+  <div id="landscape-warning">Please rotate your device to landscape mode.</div>
+  <div id="container" style="display:none;">
+    <div id="background"></div>
+    <div id="video-container">
+      <iframe id="player" width="100%" height="100%" frameborder="0" allow="autoplay" allowfullscreen></iframe>
+    </div>
+    <div id="static-screen"></div>
+    <div id="light-effect" style="pointer-events: none;"></div>
+    <div id="click-area" onclick="changeVideo()"></div>
+  </div>
+  <audio id="rain-audio" loop>
+    <source src="heavy-rain-white-noise-159772.mp3" type="audio/mp3">
+  </audio>
+  <script>
+    const videoList = ["fbv0c9g3Xno", "JlSElpfv2pM", "7X-oPY_B39M"]; // Replace with your video IDs
+    const player = document.getElementById("player");
+    const staticScreen = document.getElementById("static-screen");
+    const rainAudio = document.getElementById("rain-audio");
+    let staticInterval;
+
+    function getRandomVideo() {
+      return videoList[Math.floor(Math.random() * videoList.length)];
+    }
+
+    function showStatic() {
+      let frames = ['static.png', 'static2.png', 'static3.png'];
+      let index = 0;
+      staticScreen.style.display = "block";
+      staticInterval = setInterval(() => {
+        staticScreen.style.background = `url('${frames[index]}') no-repeat center`;
+        staticScreen.style.backgroundSize = "cover";
+        index = (index + 1) % frames.length;
+      }, 100);
+      rainAudio.play();
+    }
+
+    function hideStatic() {
+      clearInterval(staticInterval);
+      staticScreen.style.display = "none";
+      rainAudio.pause();
+      rainAudio.currentTime = 0;
+    }
+
+    function changeVideo() {
+      showStatic();
+      player.src = `https://www.youtube.com/embed/${getRandomVideo()}?autoplay=1&controls=0&mute=0&rel=0&playsinline=1`;
+    }
+
+    player.onload = function() {
+      setTimeout(() => {
+        hideStatic();
+      }, 500);
+    };
+
+    function checkOrientation() {
+      if (window.innerWidth < window.innerHeight) {
+        document.getElementById("landscape-warning").style.display = "flex";
+        document.getElementById("container").style.display = "none";
+      } else {
+        document.getElementById("landscape-warning").style.display = "none";
+        document.getElementById("container").style.display = "block";
+        if (!player.src) {
+          changeVideo();
+        }
+      }
+    }
+
+    window.addEventListener("resize", checkOrientation);
+    window.addEventListener("load", checkOrientation);
+
+
+    addEventListener("click", function() {
+    var
+          el = document.documentElement
+        , rfs =
+               el.requestFullScreen
+            || el.webkitRequestFullScreen
+            || el.mozRequestFullScreen
+    ;
+    rfs.call(el);
+});
+  </script>
+</body>
+</html>
