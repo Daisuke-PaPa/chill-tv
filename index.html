@@ -50,6 +50,11 @@
       left: 28.75%;
       z-index: 2;
     }
+    /* Hide video players by default and ensure transparent backgrounds */
+    #player, #local-player {
+      display: none;
+      background: transparent;
+    }
     #static-screen {
       position: absolute;
       width: 42.5%;
@@ -79,11 +84,6 @@
       cursor: pointer;
       background: rgba(255, 255, 255, 0); /* Invisible */
     }
-    #local-player {
-      width: 100%;
-      height: 100%;
-      display: none; /* Hidden until needed */
-    }
   </style>
 </head>
 <body>
@@ -103,6 +103,7 @@
   </audio>
 
   <script>
+    // Your video list remains unchanged
     const videoList = [
       "6.mp4","5.mp4", "4.mp4", "mBDSikEgUss", "IR-6KE8C4VQ", "fbv0c9g3Xno",
       "JlSElpfv2pM", "7X-oPY_B39M", "S63cM3ZSP48", "tOzOD-82mW0", "2oa5WCUpwD8",
@@ -129,7 +130,7 @@
 
     function getNextVideo() {
       if (currentIndex >= videoList.length) {
-        shuffleArray(videoList); // Reshuffle when all videos are played
+        shuffleArray(videoList);
         currentIndex = 0;
       }
       return videoList[currentIndex++];
@@ -172,7 +173,6 @@
       });
     }
 
-    // Cache video in IndexedDB
     async function cacheVideo(videoId, videoUrl) {
       const db = await openDB();
       const response = await fetch(videoUrl);
@@ -186,7 +186,6 @@
       });
     }
 
-    // Retrieve cached video
     async function getCachedVideo(videoId) {
       const db = await openDB();
       return new Promise((resolve, reject) => {
@@ -199,57 +198,62 @@
     }
 
     function changeVideo() {
-  showStatic();
-  let nextVideo = getNextVideo();
-
-  if (nextVideo.includes(".mp4")) {
-    getCachedVideo(nextVideo).then((cachedBlob) => {
-      if (cachedBlob) {
-        localPlayer.src = URL.createObjectURL(cachedBlob);
+      showStatic();
+      let nextVideo = getNextVideo();
+      
+      if (nextVideo.includes(".mp4")) {
+        // For local videos: use our GitHub Pages path and IndexedDB caching
+        getCachedVideo(nextVideo).then((cachedBlob) => {
+          if (cachedBlob) {
+            localPlayer.src = URL.createObjectURL(cachedBlob);
+          } else {
+            localPlayer.src = `https://daisuke-papa.github.io/chill-tv/video/${nextVideo}`;
+            cacheVideo(nextVideo, `https://daisuke-papa.github.io/chill-tv/video/${nextVideo}`);
+          }
+          // Do not reveal until the video is really ready (oncanplay event)
+          localPlayer.play().catch((err) => console.error(err));
+        });
+        // Hide YouTube iframe
+        player.style.display = "none";
+        player.src = "";
       } else {
-        localPlayer.src = `https://daisuke-papa.github.io/chill-tv/video/${nextVideo}`;
-        cacheVideo(nextVideo, `https://daisuke-papa.github.io/chill-tv/video/${nextVideo}`);
+        // For YouTube videos: use our timeout method since no ready event is available
+        localPlayer.style.display = "none";
+        localPlayer.pause();
+        player.src = `https://www.youtube.com/embed/${nextVideo}?autoplay=1&controls=0&mute=0&rel=0&playsinline=1`;
+        player.style.display = "block";
+        // Use a timeout fallback for YouTube
+        setTimeout(() => { hideStatic(); }, 1000);
       }
+    }
+
+    // For local videos, wait until they can play
+    localPlayer.oncanplay = function() {
+      hideStatic();
       localPlayer.style.display = "block";
-      localPlayer.play().catch((err) => console.error(err));
+    };
+
+    // Fallback: if oncanplay doesn't fire within 2 seconds, remove static
+    localPlayer.addEventListener("loadedmetadata", function() {
+      setTimeout(() => {
+        if (staticScreen.style.display !== "none") {
+          console.warn("Fallback: forcing static hide");
+          hideStatic();
+          localPlayer.style.display = "block";
+        }
+      }, 2000);
     });
-    // Stop YouTube video
-    player.style.display = "none";
-    player.src = "";
-  } else {
-    // For YouTube videos we fall back on our timeout method
-    localPlayer.style.display = "none";
-    localPlayer.pause();
-    player.src = `https://www.youtube.com/embed/${nextVideo}?autoplay=1&controls=0&mute=0&rel=0&playsinline=1`;
-    player.style.display = "block";
-  }
-}
-    
 
+    localPlayer.onerror = function() {
+      console.error("Error loading local video:", localPlayer.error);
+      hideStatic();
+      localPlayer.style.display = "none";
+    };
+
+    // For YouTube iframe, we still use a timeout since there is no ready event
     player.onload = function() {
-      setTimeout(() => {
-        hideStatic();
-      }, 500);
+      setTimeout(() => { hideStatic(); }, 500);
     };
-
-    localPlayer.onloadeddata = function() {
-      setTimeout(() => {
-        hideStatic();
-      }, 500);
-    };
-
-    // Instead of using onloadeddata with a timeout, use oncanplay for local videos
-localPlayer.oncanplay = function() {
-  hideStatic();
-};
-
-// Also add an error handler to catch playback issues:
-localPlayer.onerror = function() {
-  console.error("Error loading local video:", localPlayer.error);
-  // Optionally hide static or try a fallback
-  hideStatic();
-};
-
 
     function checkOrientation() {
       if (window.innerWidth < window.innerHeight) {
