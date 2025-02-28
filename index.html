@@ -233,7 +233,7 @@
       }
     }
 
-    // For local videos, reveal the video only when it's ready
+    // For local videos: hide static only when the video can play
     localPlayer.oncanplay = function() {
       hideStatic();
       localPlayer.style.display = "block";
@@ -245,7 +245,7 @@
       localPlayer.style.display = "none";
     };
 
-    // For YouTube iframe, use a timeout (1s) to hide static (if needed)
+    // For YouTube iframe, use a timeout (1s) to hide static
     player.onload = function() {
       setTimeout(() => { hideStatic(); }, 1000);
     };
