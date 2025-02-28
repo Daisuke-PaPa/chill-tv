@@ -5,79 +5,7 @@
   <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0">
   <title>Chill TV</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      background: black;
-      overflow: hidden;
-      width: 100vw;
-      height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    #landscape-warning {
-      position: fixed;
-      width: 100vw;
-      height: 100vh;
-      background: black;
-      color: white;
-      font-size: 32px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 10;
-    }
-    #container {
-      position: relative;
-      height: 100vh;
-      aspect-ratio: 16 / 9;
-      transform: scale(1);
-    }
-    #background {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      background: url('tv.png') no-repeat center;
-      background-size: cover;
-      z-index: 1;
-    }
-    #video-container {
-      position: absolute;
-      width: 42.5%;
-      height: 42.5%;
-      top: 16.4%;
-      left: 28.75%;
-      z-index: 2;
-    }
-    #static-screen {
-      position: absolute;
-      width: 42.5%;
-      height: 42.5%;
-      top: 16.4%;
-      left: 28.75%;
-      background-size: cover;
-      display: none;
-      z-index: 3;
-    }
-    #light-effect {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      background: url('light_effect.png') no-repeat center;
-      background-size: cover;
-      z-index: 4;
-      pointer-events: none;
-    }
-    #click-area {
-      position: absolute;
-      width: 7.89%;
-      height: 28.2%;
-      top: 24.03%;
-      left: 73.05%;
-      z-index: 5;
-      cursor: pointer;
-      background: rgba(255, 255, 255, 0); /* Invisible */
-    }
+    /* Your existing CSS styles remain the same */
   </style>
 </head>
 <body>
@@ -86,6 +14,7 @@
     <div id="background"></div>
     <div id="video-container">
       <iframe id="player" width="100%" height="100%" frameborder="0" allow="autoplay" allowfullscreen></iframe>
+      <video id="local-player" autoplay loop playsinline></video>
     </div>
     <div id="static-screen"></div>
     <div id="light-effect" style="pointer-events: none;"></div>
@@ -94,15 +23,37 @@
   <audio id="rain-audio" loop>
     <source src="heavy-rain-white-noise-159772.mp3" type="audio/mp3">
   </audio>
+
   <script>
-    const videoList = ["fbv0c9g3Xno", "JlSElpfv2pM", "7X-oPY_B39M"]; // Replace with your video IDs
+    const videoList = [
+      "6.mp4","5.mp4", "4.mp4", "mBDSikEgUss", "IR-6KE8C4VQ", "fbv0c9g3Xno",
+      "JlSElpfv2pM", "7X-oPY_B39M", "S63cM3ZSP48", "tOzOD-82mW0", "2oa5WCUpwD8",
+      "1.mp4", "2.mp4", "5zxS5lyTeHI", "3.mp4", "3nlSDxvt6JU", "fzQ6gRAEoy0",
+      "-tKVN2mAKRI", "TIthXhCSgPE", "rRnce10ZA1Y", "5-S50aCCBHs", "OVuYIMa5XBw",
+      "pfkBYHFZAt8"
+    ];
+
     const player = document.getElementById("player");
+    const localPlayer = document.getElementById("local-player");
     const staticScreen = document.getElementById("static-screen");
     const rainAudio = document.getElementById("rain-audio");
     let staticInterval;
+    let shuffledVideos = shuffleArray([...videoList]);
+    let currentIndex = 0;
 
-    function getRandomVideo() {
-      return videoList[Math.floor(Math.random() * videoList.length)];
+    function shuffleArray(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]]; 
+      }
+    }
+
+    function getNextVideo() {
+      if (currentIndex >= videoList.length) {
+        shuffleArray(videoList); // Reshuffle when all videos are played
+        currentIndex = 0;
+      }
+      return videoList[currentIndex++];
     }
 
     function showStatic() {
@@ -124,12 +75,89 @@
       rainAudio.currentTime = 0;
     }
 
+    // Open IndexedDB
+    const DB_NAME = "VideoCacheDB";
+    const STORE_NAME = "videos";
+
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, 1);
+        request.onupgradeneeded = (event) => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            db.createObjectStore(STORE_NAME);
+          }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    // Cache video
+    async function cacheVideo(videoId, videoUrl) {
+      const db = await openDB();
+      const response = await fetch(videoUrl);
+      const blob = await response.blob();
+
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORE_NAME, "readwrite");
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.put(blob, videoId);
+
+        request.onsuccess = () => resolve(true);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    // Retrieve cached video
+    async function getCachedVideo(videoId) {
+      const db = await openDB();
+
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORE_NAME, "readonly");
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.get(videoId);
+
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
     function changeVideo() {
       showStatic();
-      player.src = `https://www.youtube.com/embed/${getRandomVideo()}?autoplay=1&controls=0&mute=0&rel=0&playsinline=1`;
+      let nextVideo = getNextVideo();
+
+      if (nextVideo.includes(".mp4")) {
+        // Play local video
+        getCachedVideo(nextVideo).then((cachedBlob) => {
+          if (cachedBlob) {
+            localPlayer.src = URL.createObjectURL(cachedBlob);
+            localPlayer.style.display = "block";
+            localPlayer.play();
+          } else {
+            localPlayer.src = `https://daisuke-papa.github.io/chill-tv/video/${nextVideo}`;
+            cacheVideo(nextVideo, `https://daisuke-papa.github.io/chill-tv/video/${nextVideo}`);
+          }
+        });
+
+        player.style.display = "none";
+        player.src = ""; // Stop YouTube video
+      } else {
+        // Play YouTube video
+        localPlayer.style.display = "none";
+        localPlayer.pause();
+        player.src = `https://www.youtube.com/embed/${nextVideo}?autoplay=1&controls=0&mute=0&rel=0&playsinline=1`;
+        player.style.display = "block";
+      }
     }
 
     player.onload = function() {
+      setTimeout(() => {
+        hideStatic();
+      }, 500);
+    };
+
+    localPlayer.onloadeddata = function() {
       setTimeout(() => {
         hideStatic();
       }, 500);
@@ -142,7 +170,7 @@
       } else {
         document.getElementById("landscape-warning").style.display = "none";
         document.getElementById("container").style.display = "block";
-        if (!player.src) {
+        if (!player.src && !localPlayer.src) {
           changeVideo();
         }
       }
@@ -151,17 +179,13 @@
     window.addEventListener("resize", checkOrientation);
     window.addEventListener("load", checkOrientation);
 
-
     addEventListener("click", function() {
-    var
-          el = document.documentElement
-        , rfs =
-               el.requestFullScreen
-            || el.webkitRequestFullScreen
-            || el.mozRequestFullScreen
-    ;
-    rfs.call(el);
-});
+      var lightEffect = document.getElementById("light-effect");
+      lightEffect.style.animation = "none"; // Reset animation
+      setTimeout(() => {
+        lightEffect.style.animation = "flash 0.5s infinite";
+      }, 100);
+    });
   </script>
 </body>
 </html>
