@@ -199,32 +199,32 @@
     }
 
     function changeVideo() {
-      showStatic();
-      let nextVideo = getNextVideo();
-      
-      if (nextVideo.includes(".mp4")) {
-        // For local videos, use GitHub Pages path and IndexedDB caching
-        getCachedVideo(nextVideo).then((cachedBlob) => {
-          if (cachedBlob) {
-            localPlayer.src = URL.createObjectURL(cachedBlob);
-            localPlayer.style.display = "block";
-            localPlayer.play();
-          } else {
-            localPlayer.src = `https://daisuke-papa.github.io/chill-tv/video/${nextVideo}`;
-            // Cache after setting the source
-            cacheVideo(nextVideo, `https://daisuke-papa.github.io/chill-tv/video/${nextVideo}`);
-          }
-        });
-        player.style.display = "none";
-        player.src = ""; // Stop YouTube video
+  showStatic();
+  let nextVideo = getNextVideo();
+
+  if (nextVideo.includes(".mp4")) {
+    getCachedVideo(nextVideo).then((cachedBlob) => {
+      if (cachedBlob) {
+        localPlayer.src = URL.createObjectURL(cachedBlob);
       } else {
-        // For YouTube videos
-        localPlayer.style.display = "none";
-        localPlayer.pause();
-        player.src = `https://www.youtube.com/embed/${nextVideo}?autoplay=1&controls=0&mute=0&rel=0&playsinline=1`;
-        player.style.display = "block";
+        localPlayer.src = `https://daisuke-papa.github.io/chill-tv/video/${nextVideo}`;
+        cacheVideo(nextVideo, `https://daisuke-papa.github.io/chill-tv/video/${nextVideo}`);
       }
-    }
+      localPlayer.style.display = "block";
+      localPlayer.play().catch((err) => console.error(err));
+    });
+    // Stop YouTube video
+    player.style.display = "none";
+    player.src = "";
+  } else {
+    // For YouTube videos we fall back on our timeout method
+    localPlayer.style.display = "none";
+    localPlayer.pause();
+    player.src = `https://www.youtube.com/embed/${nextVideo}?autoplay=1&controls=0&mute=0&rel=0&playsinline=1`;
+    player.style.display = "block";
+  }
+}
+    
 
     player.onload = function() {
       setTimeout(() => {
@@ -237,6 +237,19 @@
         hideStatic();
       }, 500);
     };
+
+    // Instead of using onloadeddata with a timeout, use oncanplay for local videos
+localPlayer.oncanplay = function() {
+  hideStatic();
+};
+
+// Also add an error handler to catch playback issues:
+localPlayer.onerror = function() {
+  console.error("Error loading local video:", localPlayer.error);
+  // Optionally hide static or try a fallback
+  hideStatic();
+};
+
 
     function checkOrientation() {
       if (window.innerWidth < window.innerHeight) {
