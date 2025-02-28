@@ -5,7 +5,85 @@
   <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0">
   <title>Chill TV</title>
   <style>
-    /* Your existing CSS styles remain the same */
+    /* Original CSS styles */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: black;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #landscape-warning {
+      position: fixed;
+      width: 100vw;
+      height: 100vh;
+      background: black;
+      color: white;
+      font-size: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+    #container {
+      position: relative;
+      height: 100vh;
+      aspect-ratio: 16 / 9;
+      transform: scale(1);
+    }
+    #background {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: url('tv.png') no-repeat center;
+      background-size: cover;
+      z-index: 1;
+    }
+    #video-container {
+      position: absolute;
+      width: 42.5%;
+      height: 42.5%;
+      top: 16.4%;
+      left: 28.75%;
+      z-index: 2;
+    }
+    #static-screen {
+      position: absolute;
+      width: 42.5%;
+      height: 42.5%;
+      top: 16.4%;
+      left: 28.75%;
+      background-size: cover;
+      display: none;
+      z-index: 3;
+    }
+    #light-effect {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: url('light_effect.png') no-repeat center;
+      background-size: cover;
+      z-index: 4;
+      pointer-events: none;
+    }
+    #click-area {
+      position: absolute;
+      width: 7.89%;
+      height: 28.2%;
+      top: 24.03%;
+      left: 73.05%;
+      z-index: 5;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0); /* Invisible */
+    }
+    #local-player {
+      width: 100%;
+      height: 100%;
+      display: none; /* Hidden until needed */
+    }
   </style>
 </head>
 <body>
@@ -44,8 +122,9 @@
     function shuffleArray(array) {
       for (let i = array.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]]; 
+        [array[i], array[j]] = [array[j], array[i]];
       }
+      return array;
     }
 
     function getNextVideo() {
@@ -75,7 +154,7 @@
       rainAudio.currentTime = 0;
     }
 
-    // Open IndexedDB
+    // IndexedDB settings
     const DB_NAME = "VideoCacheDB";
     const STORE_NAME = "videos";
 
@@ -93,17 +172,15 @@
       });
     }
 
-    // Cache video
+    // Cache video in IndexedDB
     async function cacheVideo(videoId, videoUrl) {
       const db = await openDB();
       const response = await fetch(videoUrl);
       const blob = await response.blob();
-
       return new Promise((resolve, reject) => {
         const transaction = db.transaction(STORE_NAME, "readwrite");
         const store = transaction.objectStore(STORE_NAME);
         const request = store.put(blob, videoId);
-
         request.onsuccess = () => resolve(true);
         request.onerror = () => reject(request.error);
       });
@@ -112,12 +189,10 @@
     // Retrieve cached video
     async function getCachedVideo(videoId) {
       const db = await openDB();
-
       return new Promise((resolve, reject) => {
         const transaction = db.transaction(STORE_NAME, "readonly");
         const store = transaction.objectStore(STORE_NAME);
         const request = store.get(videoId);
-
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => reject(request.error);
       });
@@ -126,9 +201,9 @@
     function changeVideo() {
       showStatic();
       let nextVideo = getNextVideo();
-
+      
       if (nextVideo.includes(".mp4")) {
-        // Play local video
+        // For local videos, use GitHub Pages path and IndexedDB caching
         getCachedVideo(nextVideo).then((cachedBlob) => {
           if (cachedBlob) {
             localPlayer.src = URL.createObjectURL(cachedBlob);
@@ -136,14 +211,14 @@
             localPlayer.play();
           } else {
             localPlayer.src = `https://daisuke-papa.github.io/chill-tv/video/${nextVideo}`;
+            // Cache after setting the source
             cacheVideo(nextVideo, `https://daisuke-papa.github.io/chill-tv/video/${nextVideo}`);
           }
         });
-
         player.style.display = "none";
         player.src = ""; // Stop YouTube video
       } else {
-        // Play YouTube video
+        // For YouTube videos
         localPlayer.style.display = "none";
         localPlayer.pause();
         player.src = `https://www.youtube.com/embed/${nextVideo}?autoplay=1&controls=0&mute=0&rel=0&playsinline=1`;
