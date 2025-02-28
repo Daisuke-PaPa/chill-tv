@@ -108,7 +108,6 @@
   </audio>
 
   <script>
-    // Video list remains unchanged
     const videoList = [
       "6.mp4", "5.mp4", "4.mp4", "mBDSikEgUss", "IR-6KE8C4VQ", "fbv0c9g3Xno",
       "JlSElpfv2pM", "7X-oPY_B39M", "S63cM3ZSP48", "tOzOD-82mW0", "2oa5WCUpwD8",
@@ -209,7 +208,7 @@
       let nextVideo = getNextVideo();
 
       if (nextVideo.includes(".mp4")) {
-        // For local videos: wait until oncanplay fires before revealing
+        // For local videos: wait until the video actually starts playing
         localPlayer.style.display = "none";
         getCachedVideo(nextVideo).then((cachedBlob) => {
           if (cachedBlob) {
@@ -233,10 +232,12 @@
       }
     }
 
-    // For local videos: hide static only when the video can play
-    localPlayer.oncanplay = function() {
-      hideStatic();
-      localPlayer.style.display = "block";
+    // For local videos, wait until the video is actually playing (currentTime > 0)
+    localPlayer.onplaying = function() {
+      if (localPlayer.currentTime > 0) {
+        hideStatic();
+        localPlayer.style.display = "block";
+      }
     };
 
     localPlayer.onerror = function() {
