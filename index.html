@@ -208,7 +208,7 @@
       let nextVideo = getNextVideo();
 
       if (nextVideo.includes(".mp4")) {
-        // For local videos: wait until the video actually starts playing
+        // For local videos: wait until the video actually starts playing (via timeupdate)
         localPlayer.style.display = "none";
         getCachedVideo(nextVideo).then((cachedBlob) => {
           if (cachedBlob) {
@@ -232,13 +232,15 @@
       }
     }
 
-    // For local videos, wait until the video is actually playing (currentTime > 0)
-    localPlayer.onplaying = function() {
-      if (localPlayer.currentTime > 0) {
+    // Use timeupdate to check if the local video has actually started playing
+    function onTimeUpdate() {
+      if (localPlayer.currentTime > 0.1) {
         hideStatic();
         localPlayer.style.display = "block";
+        localPlayer.removeEventListener("timeupdate", onTimeUpdate);
       }
-    };
+    }
+    localPlayer.addEventListener("timeupdate", onTimeUpdate);
 
     localPlayer.onerror = function() {
       console.error("Error loading local video:", localPlayer.error);
