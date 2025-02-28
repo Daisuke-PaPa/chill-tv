@@ -51,7 +51,7 @@
       z-index: 2;
       overflow: hidden;
     }
-    /* Ensure video and iframe always fill the container without overflow */
+    /* Keep the players confined to the container */
     #player, #local-player {
       width: 100%;
       height: 100%;
@@ -100,6 +100,7 @@
     </div>
     <div id="static-screen"></div>
     <div id="light-effect"></div>
+    <!-- Change video only when the user clicks here -->
     <div id="click-area" onclick="changeVideo()"></div>
   </div>
   <audio id="rain-audio" loop>
@@ -107,9 +108,9 @@
   </audio>
 
   <script>
-    // Unchanged video list
+    // Video list remains unchanged
     const videoList = [
-      "6.mp4","5.mp4", "4.mp4", "mBDSikEgUss", "IR-6KE8C4VQ", "fbv0c9g3Xno",
+      "6.mp4", "5.mp4", "4.mp4", "mBDSikEgUss", "IR-6KE8C4VQ", "fbv0c9g3Xno",
       "JlSElpfv2pM", "7X-oPY_B39M", "S63cM3ZSP48", "tOzOD-82mW0", "2oa5WCUpwD8",
       "1.mp4", "2.mp4", "5zxS5lyTeHI", "3.mp4", "3nlSDxvt6JU", "fzQ6gRAEoy0",
       "-tKVN2mAKRI", "TIthXhCSgPE", "rRnce10ZA1Y", "5-S50aCCBHs", "OVuYIMa5XBw",
@@ -140,7 +141,7 @@
       return videoList[currentIndex++];
     }
 
-    // Show static screen with animation
+    // Show static overlay with animation
     function showStatic() {
       let frames = ['static.png', 'static2.png', 'static3.png'];
       let index = 0;
@@ -202,12 +203,13 @@
       });
     }
 
+    // Change video only when the user clicks the left area
     function changeVideo() {
       showStatic();
       let nextVideo = getNextVideo();
-      
+
       if (nextVideo.includes(".mp4")) {
-        // For local videos: ensure localPlayer is hidden initially
+        // For local videos: wait until oncanplay fires before revealing
         localPlayer.style.display = "none";
         getCachedVideo(nextVideo).then((cachedBlob) => {
           if (cachedBlob) {
@@ -216,14 +218,13 @@
             localPlayer.src = `https://daisuke-papa.github.io/chill-tv/video/${nextVideo}`;
             cacheVideo(nextVideo, `https://daisuke-papa.github.io/chill-tv/video/${nextVideo}`);
           }
-          // Play but rely on oncanplay to reveal the video
           localPlayer.play().catch((err) => console.error(err));
         });
         // Hide YouTube iframe
         player.style.display = "none";
         player.src = "";
       } else {
-        // For YouTube videos: show static for 1s only
+        // For YouTube videos: show static overlay for 1 second only
         localPlayer.style.display = "none";
         localPlayer.pause();
         player.src = `https://www.youtube.com/embed/${nextVideo}?autoplay=1&controls=0&mute=0&rel=0&playsinline=1`;
@@ -232,22 +233,11 @@
       }
     }
 
-    // For local videos: show video only when ready
+    // For local videos, reveal the video only when it's ready
     localPlayer.oncanplay = function() {
       hideStatic();
       localPlayer.style.display = "block";
     };
-
-    // Fallback if oncanplay doesn't fire in 2s
-    localPlayer.addEventListener("loadedmetadata", function() {
-      setTimeout(() => {
-        if (staticScreen.style.display !== "none") {
-          console.warn("Fallback: forcing static hide for local video");
-          hideStatic();
-          localPlayer.style.display = "block";
-        }
-      }, 2000);
-    });
 
     localPlayer.onerror = function() {
       console.error("Error loading local video:", localPlayer.error);
@@ -255,11 +245,12 @@
       localPlayer.style.display = "none";
     };
 
-    // For YouTube iframe, use a timeout (1s)
+    // For YouTube iframe, use a timeout (1s) to hide static (if needed)
     player.onload = function() {
       setTimeout(() => { hideStatic(); }, 1000);
     };
 
+    // Only check orientation to toggle warning; do not auto-start video on load
     function checkOrientation() {
       if (window.innerWidth < window.innerHeight) {
         document.getElementById("landscape-warning").style.display = "flex";
@@ -267,15 +258,13 @@
       } else {
         document.getElementById("landscape-warning").style.display = "none";
         document.getElementById("container").style.display = "block";
-        if (!player.src && !localPlayer.src) {
-          changeVideo();
-        }
       }
     }
 
     window.addEventListener("resize", checkOrientation);
     window.addEventListener("load", checkOrientation);
 
+    // Animate light effect on click
     addEventListener("click", function() {
       var lightEffect = document.getElementById("light-effect");
       lightEffect.style.animation = "none"; // Reset animation
