@@ -49,10 +49,14 @@
       top: 16.4%;
       left: 28.75%;
       z-index: 2;
+      overflow: hidden;
     }
-    /* Hide video players by default and ensure transparent backgrounds */
+    /* Ensure video and iframe always fill the container without overflow */
     #player, #local-player {
-      display: none;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none; /* Hidden by default */
       background: transparent;
     }
     #static-screen {
@@ -91,11 +95,11 @@
   <div id="container" style="display:none;">
     <div id="background"></div>
     <div id="video-container">
-      <iframe id="player" width="100%" height="100%" frameborder="0" allow="autoplay" allowfullscreen></iframe>
+      <iframe id="player" frameborder="0" allow="autoplay" allowfullscreen></iframe>
       <video id="local-player" autoplay loop playsinline></video>
     </div>
     <div id="static-screen"></div>
-    <div id="light-effect" style="pointer-events: none;"></div>
+    <div id="light-effect"></div>
     <div id="click-area" onclick="changeVideo()"></div>
   </div>
   <audio id="rain-audio" loop>
@@ -103,7 +107,7 @@
   </audio>
 
   <script>
-    // Your video list remains unchanged
+    // Unchanged video list
     const videoList = [
       "6.mp4","5.mp4", "4.mp4", "mBDSikEgUss", "IR-6KE8C4VQ", "fbv0c9g3Xno",
       "JlSElpfv2pM", "7X-oPY_B39M", "S63cM3ZSP48", "tOzOD-82mW0", "2oa5WCUpwD8",
@@ -136,6 +140,7 @@
       return videoList[currentIndex++];
     }
 
+    // Show static screen with animation
     function showStatic() {
       let frames = ['static.png', 'static2.png', 'static3.png'];
       let index = 0;
@@ -155,7 +160,7 @@
       rainAudio.currentTime = 0;
     }
 
-    // IndexedDB settings
+    // IndexedDB for caching local videos
     const DB_NAME = "VideoCacheDB";
     const STORE_NAME = "videos";
 
@@ -202,7 +207,8 @@
       let nextVideo = getNextVideo();
       
       if (nextVideo.includes(".mp4")) {
-        // For local videos: use our GitHub Pages path and IndexedDB caching
+        // For local videos: ensure localPlayer is hidden initially
+        localPlayer.style.display = "none";
         getCachedVideo(nextVideo).then((cachedBlob) => {
           if (cachedBlob) {
             localPlayer.src = URL.createObjectURL(cachedBlob);
@@ -210,34 +216,33 @@
             localPlayer.src = `https://daisuke-papa.github.io/chill-tv/video/${nextVideo}`;
             cacheVideo(nextVideo, `https://daisuke-papa.github.io/chill-tv/video/${nextVideo}`);
           }
-          // Do not reveal until the video is really ready (oncanplay event)
+          // Play but rely on oncanplay to reveal the video
           localPlayer.play().catch((err) => console.error(err));
         });
         // Hide YouTube iframe
         player.style.display = "none";
         player.src = "";
       } else {
-        // For YouTube videos: use our timeout method since no ready event is available
+        // For YouTube videos: show static for 1s only
         localPlayer.style.display = "none";
         localPlayer.pause();
         player.src = `https://www.youtube.com/embed/${nextVideo}?autoplay=1&controls=0&mute=0&rel=0&playsinline=1`;
         player.style.display = "block";
-        // Use a timeout fallback for YouTube
         setTimeout(() => { hideStatic(); }, 1000);
       }
     }
 
-    // For local videos, wait until they can play
+    // For local videos: show video only when ready
     localPlayer.oncanplay = function() {
       hideStatic();
       localPlayer.style.display = "block";
     };
 
-    // Fallback: if oncanplay doesn't fire within 2 seconds, remove static
+    // Fallback if oncanplay doesn't fire in 2s
     localPlayer.addEventListener("loadedmetadata", function() {
       setTimeout(() => {
         if (staticScreen.style.display !== "none") {
-          console.warn("Fallback: forcing static hide");
+          console.warn("Fallback: forcing static hide for local video");
           hideStatic();
           localPlayer.style.display = "block";
         }
@@ -250,9 +255,9 @@
       localPlayer.style.display = "none";
     };
 
-    // For YouTube iframe, we still use a timeout since there is no ready event
+    // For YouTube iframe, use a timeout (1s)
     player.onload = function() {
-      setTimeout(() => { hideStatic(); }, 500);
+      setTimeout(() => { hideStatic(); }, 1000);
     };
 
     function checkOrientation() {
